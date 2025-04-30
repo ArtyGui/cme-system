@@ -1,12 +1,21 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+
 from database.connection import SessionLocal
 from schemas.user_schema import UserCreate, UserResponse
 from services.user_service import create_user, get_user_by_username
+from dependencies.jwt_bearer import JWTBearer
 
-router = APIRouter(prefix="/users", tags=["Usuários"])
 
-def get_db():
+router = APIRouter(
+    prefix="/users",
+    tags=["Usuários"]
+)
+
+# Middleware de proteção JWT
+jwt_bearer = JWTBearer(secret_key="super-secret-key")
+
+def get_db() -> Session:
     """
     Cria uma nova sessão com o banco de dados para cada requisição.
 
@@ -19,20 +28,21 @@ def get_db():
     finally:
         db.close()
 
+
 @router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-def register_user(user: UserCreate, db: Session = Depends(get_db)):
+def register_user(user: UserCreate, db: Session = Depends(get_db)) -> UserResponse:
     """
-    Endpoint para cadastrar um novo usuário no sistema.
+    Cadastra um novo usuário no sistema.
 
     Args:
-        user (UserCreate): Dados do usuário a ser criado.
-        db (Session, optional): Sessão do banco injetada via Depends. Defaults to Depends(get_db).
+        user (UserCreate): Dados enviados na requisição para criação do usuário.
+        db (Session): Sessão do banco de dados injetada via FastAPI.
 
     Raises:
-        HTTPException: 400 caso o nome de usuário já exista.
+        HTTPException: Se o nome de usuário já estiver cadastrado.
 
     Returns:
-        UserResponse: Dados do usuário criado (sem senha).
+        UserResponse: Dados do usuário criado (sem exibir a senha).
     """
     existing_user = get_user_by_username(db, user.username)
     if existing_user:
@@ -43,3 +53,14 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
 
     new_user = create_user(db, user)
     return new_user
+
+
+@router.get("/usuarios-protegidos", dependencies=[Depends(jwt_bearer)])
+def usuarios_protegidos() -> dict:
+    """
+    Rota protegida por autenticação JWT.
+
+    Returns:
+        dict: Mensagem de confirmação de acesso autorizado.
+    """
+    return {"message": "Você acessou uma rota protegida com sucesso!"}

@@ -3,4 +3,5 @@ uvicorn
 psycopg2-binary
 sqlalchemy
 pydantic
-passlib[bcrypt]
+passlib[bcrypt]==1.7.4
+python-jose

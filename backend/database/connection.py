@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, Session
 
 # Configurações de conexão
 DB_USER = "postgres"
@@ -16,3 +16,14 @@ engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
+
+def get_db() -> Session:
+    """
+    Fornece uma instância de banco de dados para uso nas dependências do FastAPI.
+    Cuida da abertura e fechamento da sessão automaticamente.
+    """
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
