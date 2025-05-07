@@ -1,53 +1,42 @@
-from sqlalchemy.orm import Session
-from models.user import User, RoleEnum
-from schemas.user_schema import UserCreate
 from passlib.context import CryptContext
+from sqlalchemy.orm import Session
+from models.user import User
+from schemas.user_schema import UserCreate
 
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-def get_password_hash(password: str) -> str:
+class UserService:
     """
-    Gera um hash seguro para a senha fornecida.
-
-    Args:
-        password (str): Senha em texto puro.
-
-    Returns:
-        str: Hash da senha.
+    Serviço para operações relacionadas ao usuário.
     """
-    return pwd_context.hash(password)
 
-def create_user(db: Session, user: UserCreate) -> User:
-    """
-    Cria um novo usuário no banco de dados.
+    def __init__(self):
+        # Define o contexto de criptografia usando bcrypt
+        self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-    Args:
-        db (Session): Sessão ativa do banco de dados.
-        user (UserCreate): Dados do usuário a ser criado.
+    def hash_password(self, password: str) -> str:
+        """
+        Retorna a senha criptografada.
+        """
+        return self.pwd_context.hash(password)
 
-    Returns:
-        User: Usuário criado no banco de dados.
-    """
-    db_user = User(
-        username=user.username,
-        password=get_password_hash(user.password),
-        role=user.role
-    )
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    return db_user
+    def create_user(self, db: Session, user_data: UserCreate) -> User:
+        """
+        Cria um novo usuário no banco com senha criptografada.
+        """
+        hashed_pw = self.hash_password(user_data.password)
 
-def get_user_by_username(db: Session, username: str) -> User | None:
-    """
-    Busca um usuário no banco de dados pelo username.
+        new_user = User(
+            username=user_data.username,
+            password=hashed_pw,
+            role=user_data.role
+        )
 
-    Args:
-        db (Session): Sessão ativa do banco de dados.
-        username (str): Nome de usuário para buscar.
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        return new_user
 
-    Returns:
-        User | None: Usuário encontrado ou None se não existir.
-    """
-    return db.query(User).filter(User.username == username).first()
+    def get_user_by_username(self, db: Session, username: str) -> User | None:
+        """
+        Busca um usuário pelo nome de usuário.
+        """
+        return db.query(User).filter(User.username == username).first()

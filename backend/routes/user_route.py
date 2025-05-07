@@ -1,26 +1,26 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-
 from database.connection import SessionLocal
 from schemas.user_schema import UserCreate, UserResponse
-from services.user_service import create_user, get_user_by_username
+from services.user_service import UserService
 from dependencies.jwt_bearer import JWTBearer
 
 
-router = APIRouter(
-    prefix="/users",
-    tags=["Usuários"]
-)
+router = APIRouter(prefix="/users", tags=["Usuários"])
 
-# Middleware de proteção JWT
+# Instância da classe de serviço
+user_service = UserService()
+
+# Middleware de autenticação JWT
 jwt_bearer = JWTBearer(secret_key="super-secret-key")
 
-def get_db() -> Session:
+
+def get_db():
     """
-    Cria uma nova sessão com o banco de dados para cada requisição.
+    Cria e gerencia uma sessão do banco de dados para cada requisição.
 
     Returns:
-        Session: Sessão ativa do banco de dados.
+        Generator[Session, None, None]: Sessão do banco.
     """
     db = SessionLocal()
     try:
@@ -30,37 +30,35 @@ def get_db() -> Session:
 
 
 @router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-def register_user(user: UserCreate, db: Session = Depends(get_db)) -> UserResponse:
+def register_user(user: UserCreate, db: Session = Depends(get_db)):
     """
-    Cadastra um novo usuário no sistema.
+    Cadastra um novo usuário com senha criptografada.
 
     Args:
-        user (UserCreate): Dados enviados na requisição para criação do usuário.
-        db (Session): Sessão do banco de dados injetada via FastAPI.
+        user (UserCreate): Dados recebidos para criação do usuário.
+        db (Session): Sessão ativa do banco de dados.
 
     Raises:
-        HTTPException: Se o nome de usuário já estiver cadastrado.
+        HTTPException: Se o nome de usuário já existir.
 
     Returns:
-        UserResponse: Dados do usuário criado (sem exibir a senha).
+        UserResponse: Dados do usuário criado (sem senha).
     """
-    existing_user = get_user_by_username(db, user.username)
-    if existing_user:
+    if user_service.get_user_by_username(db, user.username):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username already registered."
+            detail="Nome de usuário já existe"
         )
-
-    new_user = create_user(db, user)
-    return new_user
+    
+    return user_service.create_user(db, user)
 
 
 @router.get("/usuarios-protegidos", dependencies=[Depends(jwt_bearer)])
-def usuarios_protegidos() -> dict:
+def usuarios_protegidos():
     """
-    Rota protegida por autenticação JWT.
+    Rota protegida para testar autenticação via JWT.
 
     Returns:
-        dict: Mensagem de confirmação de acesso autorizado.
+        dict: Mensagem de sucesso.
     """
     return {"message": "Você acessou uma rota protegida com sucesso!"}
